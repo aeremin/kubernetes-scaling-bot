@@ -1,0 +1,9 @@
+{
+  "name": "kubertenes-scaling-bot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "@kubernetes/client-node": "~0.18.1"
+  }
+}
