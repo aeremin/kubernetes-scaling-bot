@@ -1,9 +1,19 @@
 {
-  "name": "kubertenes-scaling-bot",
+  "name": "kubernetes-scaling-bot",
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "_comment": " Due to https://github.com/telegraf/telegraf/issues/1814, we need telegraf @ canary version",
   "dependencies": {
-    "@kubernetes/client-node": "~0.18.1"
+    "@google-cloud/container": "^4.16.0",
+    "@google-cloud/functions-framework": "^3.1.0",
+    "@kubernetes/client-node": "~0.18.1",
+    "telegraf": "4.12.3-canary.1"
+  },
+  "devDependencies": {
+    "typescript": "~5.1.6"
   }
 }
