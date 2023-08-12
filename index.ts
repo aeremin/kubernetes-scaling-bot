@@ -1,7 +1,8 @@
 import { Telegraf } from 'telegraf';
 import { http } from '@google-cloud/functions-framework';
 import { v1 } from '@google-cloud/container';
-import { AppsV1Api, KubeConfig } from "@kubernetes/client-node";
+import {AppsV1Api, CoreV1Api, KubeConfig} from "@kubernetes/client-node";
+import {add} from "@kubernetes/client-node/dist/util";
 
 // Create the Cluster Manager Client
 const client = new v1.ClusterManagerClient();
@@ -35,7 +36,13 @@ async function getCredentials(cluster: string, zone: string) {
         accessToken: accessToken
     }
 }
-async function makeK8SApiClient(cluster: string, zone: string) {
+
+interface K8Apis {
+    apps: AppsV1Api;
+    core: CoreV1Api;
+}
+
+async function makeK8SApiClients(cluster: string, zone: string): Promise<K8Apis> {
     const k8sCredentials = await getCredentials(cluster, zone);
     const k8sClientConfig = new KubeConfig();
     k8sClientConfig.loadFromOptions({
@@ -56,13 +63,12 @@ async function makeK8SApiClient(cluster: string, zone: string) {
         }],
         currentContext: `my-gke-cluster_${cluster}`,
     });
-    return k8sClientConfig.makeApiClient(AppsV1Api);
+    return {apps: k8sClientConfig.makeApiClient(AppsV1Api), core: k8sClientConfig.makeApiClient(CoreV1Api)};
 }
 
-async function scale(zone: string, cluster: string, namespace: string, name: string, replicas: number) {
-    const k8sApi = await makeK8SApiClient(cluster, zone);
+async function scale(api: AppsV1Api, zone: string, cluster: string, namespace: string, name: string, replicas: number) {
     // find the particular deployment
-    const res = await k8sApi.readNamespacedDeployment(name, namespace);
+    const res = await api.readNamespacedDeployment(name, namespace);
     console.log("Read a deployment");
     let deployment = res.body;
 
@@ -70,7 +76,7 @@ async function scale(zone: string, cluster: string, namespace: string, name: str
     deployment.spec.replicas = replicas;
 
     // replace
-    await k8sApi.replaceNamespacedDeployment(name, namespace, deployment);
+    await api.replaceNamespacedDeployment(name, namespace, deployment);
     console.log("Replaced a deployment");
 }
 
@@ -83,12 +89,20 @@ const DEPLOYMENT_NAME = 'factorio';
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
 bot.command('up', async (ctx) => {
-    await scale(ZONE, CLUSTER, NAMESPACE, DEPLOYMENT_NAME, 1);
-    await ctx.sendMessage("Done!");
+    const {apps, core} = await makeK8SApiClients(CLUSTER, ZONE);
+    await scale(apps, ZONE, CLUSTER, NAMESPACE, DEPLOYMENT_NAME, 1);
+    const nodes = (await core.listNode()).body.items;
+
+    let msg = "Done!\nIP addresses:\n";
+    for (const node of nodes) {
+        msg = msg + node.status.addresses.filter(address => address.type == "ExternalIP")[0].address + "\n";
+    }
+    await ctx.sendMessage(msg);
 });
 
 bot.command('down', async (ctx) => {
-    await scale(ZONE, CLUSTER, NAMESPACE, DEPLOYMENT_NAME, 0);
+    const {apps, core} = await makeK8SApiClients(CLUSTER, ZONE);
+    await scale(apps, ZONE, CLUSTER, NAMESPACE, DEPLOYMENT_NAME, 0);
     await ctx.sendMessage("Done!");
 });
 
