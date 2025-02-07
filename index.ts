@@ -1,8 +1,7 @@
 import { Telegraf } from 'telegraf';
 import { http } from '@google-cloud/functions-framework';
 import { v1 } from '@google-cloud/container';
-import {AppsV1Api, CoreV1Api, KubeConfig} from "@kubernetes/client-node";
-import {add} from "@kubernetes/client-node/dist/util";
+import {AppsV1Api, CoreV1Api, KubeConfig, V1Node} from "@kubernetes/client-node";
 
 // Create the Cluster Manager Client
 const client = new v1.ClusterManagerClient();
@@ -91,9 +90,14 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 bot.command('up', async (ctx) => {
     const {apps, core} = await makeK8SApiClients(CLUSTER, ZONE);
     await scale(apps, ZONE, CLUSTER, NAMESPACE, DEPLOYMENT_NAME, 1);
-    const nodes = (await core.listNode()).body.items;
+    await ctx.sendMessage("Done! Please wait for the follow-up message with the server address.");
 
-    let msg = "Done!\nIP addresses:\n";
+    let nodes: V1Node[] = [];
+    while (nodes.length == 0) {
+        nodes = (await core.listNode()).body.items;
+    }
+
+    let msg = "IP addresses:\n";
     for (const node of nodes) {
         msg = msg + node.status.addresses.filter(address => address.type == "ExternalIP")[0].address + "\n";
     }
