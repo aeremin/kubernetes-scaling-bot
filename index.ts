@@ -83,7 +83,7 @@ const ZONE = 'europe-west3';
 const PROJECT_ID = 'alice-larp';
 const CLUSTER = 'cost-cutting-autopilot';
 const NAMESPACE = 'default';
-const DEPLOYMENT_NAME = 'factorio';
+const DEPLOYMENT_NAME = 'factorio-2';
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
